@@ -1,39 +1,29 @@
 // api/chat.js
-
-const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
-
-export const config = {
-  runtime: 'edge',
-};
-
-export default async function handler(request) {
-  // 只允许 POST
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Only POST allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Only POST allowed' });
   }
 
+  const { message, role } = req.body;
+
+  // 角色提示词（根据作业要求）
+  const rolePrompts = {
+    "导师": "你是一位计算机科学专业导师，擅长用清晰易懂的方式解释复杂概念。",
+    "研究员": "你是一位AI领域研究员，回答需严谨、专业，引用最新技术趋势。",
+    "写作助手": "你是一位学术写作助手，帮助用户润色论文、组织逻辑、提升表达。"
+  };
+
+  const systemPrompt = rolePrompts[role] || rolePrompts["导师"];
+
   try {
-    const { message, role } = await request.json();
-
-    const rolePrompts = {
-      "导师": "你是一名资深计算机科学导师，擅长用通俗语言解释复杂概念，注重基础与逻辑。",
-      "研究员": "你是一名人工智能领域研究员，熟悉论文写作、实验设计与前沿技术分析。",
-      "写作助手": "你是一名学术写作专家，擅长润色、结构调整和符合学术规范的表达。"
-    };
-
-    const systemPrompt = rolePrompts[role] || rolePrompts["导师"];
-
-    const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', {
+    const dashResponse = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
-        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.API_KEY}`, // 👈 注意这里是 API_KEY
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "qwen-max",
+        model: "qwen-plus-2025-07-28", // 👈 百炼专用模型名
         input: {
           messages: [
             { role: "system", content: systemPrompt },
@@ -41,30 +31,24 @@ export default async function handler(request) {
           ]
         },
         parameters: {
-          result_format: "message"
+          result_format: "message",
+          enable_thinking: true // 开启深度思考（可选）
         }
       })
     });
 
-    const data = await response.json();
+    const data = await dashResponse.json();
 
-    let reply = "服务暂时不可用，请稍后再试。";
     if (data.output?.choices?.[0]?.message?.content) {
-      reply = data.output.choices[0].message.content;
+      const reply = data.output.choices[0].message.content;
+      return res.status(200).json({ reply });
     } else {
-      console.error("DashScope API Error:", data);
+      console.error("API 返回异常:", data);
+      return res.status(500).json({ reply: "服务暂时不可用，请稍后再试。" });
     }
 
-    return new Response(JSON.stringify({ reply }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-
   } catch (error) {
-    console.error("Handler error:", error);
-    return new Response(JSON.stringify({ reply: "内部错误，请重试。" }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.error("调用失败:", error);
+    return res.status(500).json({ reply: "网络错误，请稍后再试。" });
   }
 }
