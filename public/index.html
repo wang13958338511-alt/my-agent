@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>我的专业智能体</title>
+  <style>
+    body { font-family: Arial; max-width: 800px; margin: 30px auto; padding: 0 20px; }
+    select, textarea, button { width: 100%; margin: 10px 0; padding: 10px; }
+    #chat { height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+    .user { text-align: right; color: blue; }
+    .bot { text-align: left; color: green; }
+  </style>
+</head>
+<body>
+  <h1>🎓 我的专业智能体</h1>
+  <select id="roleSelect">
+    <option value="导师">计算机导师</option>
+    <option value="研究员">科研研究员</option>
+    <option value="写作助手">学术写作助手</option>
+  </select>
+
+  <div id="chat"></div>
+
+  <textarea id="input" placeholder="请输入你的问题..." rows="3"></textarea>
+  <button onclick="sendMessage()">发送</button>
+
+  <script>
+    const roles = {
+      "导师": "你是一名资深计算机科学导师，擅长用通俗语言解释复杂概念，注重基础与逻辑。",
+      "研究员": "你是一名人工智能领域研究员，熟悉论文写作、实验设计与前沿技术分析。",
+      "写作助手": "你是一名学术写作专家，擅长润色、结构调整和符合学术规范的表达。"
+    };
+
+    async function sendMessage() {
+      const inputEl = document.getElementById("input");
+      const role = document.getElementById("roleSelect").value;
+      const userMsg = inputEl.value.trim();
+      if (!userMsg) return;
+
+      // 显示用户消息
+      addMessage(userMsg, 'user');
+
+      inputEl.value = "";
+      inputEl.disabled = true;
+      document.querySelector('button').disabled = true;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userMsg, role: role })
+        });
+        const data = await res.json();
+        addMessage(data.reply || "出错了", 'bot');
+      } catch (e) {
+        addMessage("网络错误，请重试", 'bot');
+      }
+
+      inputEl.disabled = false;
+      document.querySelector('button').disabled = false;
+    }
+
+    function addMessage(text, sender) {
+      const chat = document.getElementById("chat");
+      const div = document.createElement("div");
+      div.className = sender;
+      div.textContent = sender === 'user' ? "我: " + text : "智能体: " + text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    // 回车发送
+    document.getElementById("input").addEventListener("keypress", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/chat.js" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    }
+  ]
+}
